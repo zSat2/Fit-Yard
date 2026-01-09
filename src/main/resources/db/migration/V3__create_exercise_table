@@ -1,0 +1,149 @@
+CREATE TABLE exercises (
+    id                      BIGSERIAL PRIMARY KEY,
+
+    -- Identity
+    name                    VARCHAR(150) NOT NULL,
+    slug                    VARCHAR(150) NOT NULL,
+    description             TEXT,
+
+    -- Classification
+    category                VARCHAR(50) NOT NULL
+        CHECK (category IN (
+            'STRENGTH', 'CARDIO', 'FLEXIBILITY',
+            'PLYOMETRICS', 'SPORTS', 'OTHER'
+        )),
+
+    primary_muscle_group    VARCHAR(50) NOT NULL
+        CHECK (primary_muscle_group IN (
+            'CHEST', 'BACK', 'SHOULDERS',
+            'BICEPS', 'TRICEPS', 'FOREARMS',
+            'ABS', 'OBLIQUES', 'LOWER_BACK',
+            'QUADS', 'HAMSTRINGS', 'GLUTES', 'CALVES',
+            'FULL_BODY', 'CARDIO'
+        )),
+
+    -- Secondary muscles are descriptive, not enforced analytics truth
+    secondary_muscles       TEXT[],
+
+    movement_pattern        VARCHAR(50)
+        CHECK (movement_pattern IN (
+            'PUSH', 'PULL', 'HINGE', 'SQUAT',
+            'LUNGE', 'CARRY', 'ROTATION',
+            'ISOLATION', 'CARDIO', 'FLEXIBILITY'
+        )),
+
+    -- Equipment & Modality
+    -- Single primary equipment; auxiliary equipment handled at UI / metadata level
+    equipment               VARCHAR(100)
+        CHECK (equipment IN (
+            'BARBELL', 'DUMBBELL', 'KETTLEBELL',
+            'CABLE', 'MACHINE', 'BODYWEIGHT',
+            'RESISTANCE_BAND', 'SUSPENSION', 'EZ_BAR',
+            'TRAP_BAR', 'SMITH_MACHINE',
+            'CARDIO_MACHINE', 'OTHER', 'NONE'
+        )),
+
+    is_bodyweight           BOOLEAN NOT NULL DEFAULT FALSE,
+    is_unilateral           BOOLEAN NOT NULL DEFAULT FALSE,
+    is_compound             BOOLEAN NOT NULL DEFAULT TRUE,
+
+    -- Difficulty & Skill
+    difficulty_level        VARCHAR(20)
+        CHECK (difficulty_level IN (
+            'BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'
+        )),
+
+    requires_spotter        BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Tracking & Logging Semantics
+    default_tracking_mode   VARCHAR(30) NOT NULL DEFAULT 'WEIGHT_REPS'
+        CHECK (default_tracking_mode IN (
+            'WEIGHT_REPS',
+            'BODYWEIGHT_REPS',
+            'DURATION',
+            'DISTANCE',
+            'CALORIES'
+        )),
+
+    supports_weight         BOOLEAN NOT NULL DEFAULT TRUE,
+    supports_reps           BOOLEAN NOT NULL DEFAULT TRUE,
+    supports_duration       BOOLEAN NOT NULL DEFAULT FALSE,
+    supports_distance       BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Safety & Coaching (ordered, human-readable, non-analytic)
+    injury_risks            TEXT[],
+    coaching_cues           TEXT[],
+    common_mistakes         TEXT[],
+
+    -- Instructions
+    setup_instructions      TEXT,
+    execution_steps         TEXT[],
+
+    -- Media
+    video_url               VARCHAR(500),
+    thumbnail_url           VARCHAR(500),
+    demonstration_gif_url   VARCHAR(500),
+
+    -- User-Created Content
+    is_custom               BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by_user_id      BIGINT,
+
+    -- Popularity (derived / denormalized, not source of truth)
+    times_logged            INTEGER NOT NULL DEFAULT 0
+        CHECK (times_logged >= 0),
+
+    -- Status & Moderation
+    is_active               BOOLEAN NOT NULL DEFAULT TRUE,
+    is_verified             BOOLEAN NOT NULL DEFAULT TRUE,
+
+    -- Metadata
+    created_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at              TIMESTAMP,
+
+    CONSTRAINT fk_exercises_creator
+        FOREIGN KEY (created_by_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+-- Uniqueness
+CREATE UNIQUE INDEX uq_exercises_name_active
+    ON exercises(name)
+    WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX uq_exercises_slug
+    ON exercises(slug);
+
+-- Filtering / Browsing
+CREATE INDEX idx_exercises_category
+    ON exercises(category);
+
+CREATE INDEX idx_exercises_primary_muscle
+    ON exercises(primary_muscle_group);
+
+CREATE INDEX idx_exercises_equipment
+    ON exercises(equipment);
+
+CREATE INDEX idx_exercises_difficulty
+    ON exercises(difficulty_level);
+
+CREATE INDEX idx_exercises_movement_pattern
+    ON exercises(movement_pattern);
+
+CREATE INDEX idx_exercises_custom
+    ON exercises(is_custom);
+
+CREATE INDEX idx_exercises_active
+    ON exercises(is_active)
+    WHERE is_active = TRUE;
+
+-- Full-text search
+CREATE INDEX idx_exercises_search
+    ON exercises
+    USING GIN (
+        to_tsvector(
+            'english',
+            name || ' ' || COALESCE(description, '')
+        )
+    );
