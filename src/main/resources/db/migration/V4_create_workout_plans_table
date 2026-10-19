@@ -1,0 +1,107 @@
+CREATE TABLE workout_plans (
+    id                          BIGSERIAL PRIMARY KEY,
+    user_id                     BIGINT NOT NULL,
+
+    -- Identity
+    name                        VARCHAR(150) NOT NULL,
+    description                 TEXT,
+
+    -- Classification
+    goal                        VARCHAR(50)
+        CHECK (goal IN (
+            'STRENGTH', 'HYPERTROPHY', 'ENDURANCE', 'POWER',
+            'WEIGHT_LOSS', 'GENERAL_FITNESS', 'ATHLETIC_PERFORMANCE',
+            'REHABILITATION', 'SPORT_SPECIFIC'
+        )),
+
+    difficulty_level            VARCHAR(20)
+        CHECK (difficulty_level IN (
+            'BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'
+        )),
+
+    -- Program Structure
+    program_type                VARCHAR(50)
+        CHECK (program_type IN (
+            'FULL_BODY', 'UPPER_LOWER', 'PUSH_PULL_LEGS',
+            'BRO_SPLIT', 'POWERLIFTING', 'BODYBUILDING',
+            'CIRCUIT', 'HIIT', 'CUSTOM'
+        )),
+
+    -- Duration & Frequency
+    estimated_duration_minutes  INTEGER
+        CHECK (estimated_duration_minutes > 0),
+
+    target_days_per_week        INTEGER
+        CHECK (target_days_per_week BETWEEN 1 AND 7),
+
+    -- Equipment & Location (descriptive, not enforced)
+    equipment_needed            TEXT[],
+    location                    VARCHAR(50)
+        CHECK (location IN ('GYM', 'HOME', 'OUTDOOR', 'ANYWHERE')),
+
+    -- Sharing & Visibility
+    is_public                   BOOLEAN NOT NULL DEFAULT FALSE,
+    is_template                 BOOLEAN NOT NULL DEFAULT FALSE,
+    allow_copying               BOOLEAN NOT NULL DEFAULT TRUE,
+
+    -- Usage Statistics (denormalized)
+    times_used                  INTEGER NOT NULL DEFAULT 0
+        CHECK (times_used >= 0),
+
+    times_completed             INTEGER NOT NULL DEFAULT 0
+        CHECK (times_completed >= 0),
+
+    -- Rating (derived, must be kept consistent by app/trigger)
+    average_rating              DECIMAL(3,2) NOT NULL DEFAULT 0.00
+        CHECK (average_rating BETWEEN 0 AND 5),
+
+    total_ratings               INTEGER NOT NULL DEFAULT 0
+        CHECK (total_ratings >= 0),
+
+    -- Status
+    is_active                   BOOLEAN NOT NULL DEFAULT TRUE,
+    is_archived                 BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Metadata
+    created_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at                  TIMESTAMP,
+
+    CONSTRAINT fk_workout_plans_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);
+
+-- Indexes
+CREATE INDEX idx_workout_plans_user
+    ON workout_plans(user_id);
+
+CREATE INDEX idx_workout_plans_goal
+    ON workout_plans(goal);
+
+CREATE INDEX idx_workout_plans_difficulty
+    ON workout_plans(difficulty_level);
+
+CREATE INDEX idx_workout_plans_program_type
+    ON workout_plans(program_type);
+
+CREATE INDEX idx_workout_plans_public
+    ON workout_plans(is_public)
+    WHERE is_public = TRUE;
+
+CREATE INDEX idx_workout_plans_active
+    ON workout_plans(user_id, is_active)
+    WHERE is_active = TRUE AND is_archived = FALSE;
+
+CREATE INDEX idx_workout_plans_popularity
+    ON workout_plans(times_used DESC, average_rating DESC);
+
+CREATE INDEX idx_workout_plans_search
+    ON workout_plans
+    USING GIN (
+        to_tsvector(
+            'english',
+            name || ' ' || COALESCE(description, '')
+        )
+    );

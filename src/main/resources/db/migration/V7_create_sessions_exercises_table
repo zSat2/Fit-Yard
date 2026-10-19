@@ -1,0 +1,32 @@
+CREATE TABLE session_exercises (
+    id                  BIGSERIAL PRIMARY KEY,
+    workout_session_id  BIGINT NOT NULL,
+    exercise_id         BIGINT NOT NULL,
+
+    order_index         INTEGER NOT NULL CHECK (order_index > 0),
+    superset_group      INTEGER CHECK (superset_group > 0),
+
+    was_planned         BOOLEAN NOT NULL DEFAULT FALSE,
+    notes               TEXT,
+
+    created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_se_session
+        FOREIGN KEY (workout_session_id)
+        REFERENCES workout_sessions(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_se_exercise
+        FOREIGN KEY (exercise_id)
+        REFERENCES exercises(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_se_session_order
+        UNIQUE (workout_session_id, order_index)
+);
+
+CREATE INDEX idx_se_session
+    ON session_exercises(workout_session_id);
+
+CREATE INDEX idx_se_exercise
+    ON session_exercises(exercise_id);

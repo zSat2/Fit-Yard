@@ -1,0 +1,40 @@
+CREATE TABLE session_sets (
+    id                      BIGSERIAL PRIMARY KEY,
+    session_exercise_id     BIGINT NOT NULL,
+
+    set_number              INTEGER NOT NULL CHECK (set_number > 0),
+
+    -- Strength
+    weight_kg               DECIMAL(6,2) CHECK (weight_kg >= 0),
+    reps_completed          INTEGER CHECK (reps_completed >= 0),
+
+    -- Cardio / timed
+    duration_seconds        INTEGER CHECK (duration_seconds > 0),
+    distance_meters         INTEGER CHECK (distance_meters > 0),
+
+    -- Effort
+    rpe                     INTEGER CHECK (rpe BETWEEN 1 AND 10),
+
+    is_completed            BOOLEAN NOT NULL DEFAULT TRUE,
+    notes                   TEXT,
+
+    created_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_ss_exercise
+        FOREIGN KEY (session_exercise_id)
+        REFERENCES session_exercises(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_ss_exercise_set
+        UNIQUE (session_exercise_id, set_number),
+
+    CONSTRAINT chk_ss_has_data
+        CHECK (
+            weight_kg IS NOT NULL
+            OR duration_seconds IS NOT NULL
+            OR distance_meters IS NOT NULL
+        )
+);
+
+CREATE INDEX idx_ss_session_exercise
+    ON session_sets(session_exercise_id);

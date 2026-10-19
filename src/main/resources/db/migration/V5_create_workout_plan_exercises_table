@@ -1,0 +1,91 @@
+CREATE TABLE workout_plan_exercises (
+    id                          BIGSERIAL PRIMARY KEY,
+    workout_plan_id             BIGINT NOT NULL,
+    exercise_id                 BIGINT NOT NULL,
+
+    -- Order & Organization
+    order_index                 INTEGER NOT NULL CHECK (order_index > 0),
+
+    -- Supersets / Circuits
+    superset_group              INTEGER CHECK (superset_group > 0),
+
+    -- Strength Targets
+    target_sets                 INTEGER CHECK (target_sets > 0),
+    target_reps_min             INTEGER CHECK (target_reps_min > 0),
+    target_reps_max             INTEGER CHECK (target_reps_max >= target_reps_min),
+
+    target_weight_kg            DECIMAL(6,2) CHECK (target_weight_kg >= 0),
+    target_weight_percentage    INTEGER CHECK (
+        target_weight_percentage > 0 AND target_weight_percentage <= 200
+    ),
+
+    -- Rest
+    rest_seconds                INTEGER DEFAULT 60 CHECK (rest_seconds >= 0),
+    rest_seconds_max            INTEGER CHECK (rest_seconds_max >= rest_seconds),
+
+    -- Cardio Targets
+    target_duration_seconds     INTEGER CHECK (target_duration_seconds > 0),
+    target_distance_meters      INTEGER CHECK (target_distance_meters > 0),
+    target_calories             INTEGER CHECK (target_calories > 0),
+
+    -- Effort
+    target_rpe                  INTEGER CHECK (target_rpe BETWEEN 1 AND 10),
+    target_rpe_max              INTEGER CHECK (
+        target_rpe_max >= target_rpe AND target_rpe_max <= 10
+    ),
+
+    -- Tempo & Coaching
+    tempo                       VARCHAR(20),
+    notes                       TEXT,
+    form_cues                   TEXT[],
+
+    -- Exercise Role
+    is_optional                 BOOLEAN NOT NULL DEFAULT FALSE,
+    is_warmup                   BOOLEAN NOT NULL DEFAULT FALSE,
+    is_cooldown                 BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Metadata
+    created_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    -- Foreign Keys
+    CONSTRAINT fk_wpe_plan
+        FOREIGN KEY (workout_plan_id)
+        REFERENCES workout_plans(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_wpe_exercise
+        FOREIGN KEY (exercise_id)
+        REFERENCES exercises(id)
+        ON DELETE CASCADE,
+
+    -- Structural Constraints
+    CONSTRAINT uq_wpe_plan_order
+        UNIQUE (workout_plan_id, order_index),
+
+    -- Guardrails: prevent nonsense combinations
+    CONSTRAINT chk_strength_vs_cardio
+        CHECK (
+            NOT (
+                target_duration_seconds IS NOT NULL
+                AND target_reps_min IS NOT NULL
+            )
+        )
+);
+
+-- Indexes
+CREATE INDEX idx_wpe_plan
+    ON workout_plan_exercises(workout_plan_id);
+
+CREATE INDEX idx_wpe_exercise
+    ON workout_plan_exercises(exercise_id);
+
+CREATE INDEX idx_wpe_plan_order
+    ON workout_plan_exercises(workout_plan_id, order_index);
+
+CREATE INDEX idx_wpe_superset
+    ON workout_plan_exercises(workout_plan_id, superset_group)
+    WHERE superset_group IS NOT NULL;
+
+CREATE INDEX idx_wpe_exercise_usage
+    ON workout_plan_exercises(exercise_id);
