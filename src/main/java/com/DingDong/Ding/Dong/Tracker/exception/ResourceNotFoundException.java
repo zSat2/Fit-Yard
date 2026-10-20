@@ -1,4 +1,10 @@
 package com.DingDong.Ding.Dong.Tracker.exception;
 
-public class ResourceNotFoundException {
+public class ResourceNotFoundException extends RuntimeException {
+    public ResourceNotFoundException(String message) {
+        super(message);
+    }
+    public ResourceNotFoundException(String resource, Long id) {
+        super(resource + " not found with id: " + id);
+    }
 }
